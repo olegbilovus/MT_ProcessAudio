@@ -25,6 +25,7 @@ type LogEvent struct {
 	TranscriptDataFile string    `csv:"transcript_data_file"`
 }
 
+//goland:noinspection D
 func main() {
 	log.SetReportCaller(true)
 	log.SetFormatter(&log.TextFormatter{FullTimestamp: true,
