@@ -132,9 +132,9 @@ func getDataFromCSV[T any](csvFile string) ([]*T, error) {
 }
 
 type TranscriptData struct {
-	StartSeconds float64 `csv:"time"`
-	Duration     float64 `csv:"duration"`
-	Word         string  `csv:"label"`
+	StartSeconds float64 `csv:"TIME"`
+	Duration     float64 `csv:"DURATION"`
+	Word         string  `csv:"LABEL"`
 	StartTime    time.Time
 	EndTime      time.Time
 	Name         string
