@@ -15,6 +15,8 @@ import (
 	"github.com/gocarina/gocsv"
 	"github.com/questdb/go-questdb-client/v4"
 	log "github.com/sirupsen/logrus"
+
+	questdbinit "github.com/olegbilovus/MT_ProcessAudio/internal/questdb"
 )
 
 type LogEvent struct {
@@ -51,7 +53,7 @@ func main() {
 		experimentName = strings.TrimSuffix(experimentName, filepath.Ext(experimentName))
 	}
 
-	if err := InitQuestDB("http://127.0.0.1:9000", experimentName); err != nil {
+	if err := questdbinit.InitQuestDB("http://127.0.0.1:9000", experimentName); err != nil {
 		log.Fatalf("failed to init QuestDB: %v", err)
 	}
 
@@ -68,8 +70,8 @@ func main() {
 		log.Fatalf("error parsing log event data: %v", err)
 	}
 
-	audioDataTableName := GetAudioTableName(experimentName)
-	transcriptDataTableName := GetTranscriptTableName(experimentName)
+	audioDataTableName := questdbinit.GetAudioTableName(experimentName)
+	transcriptDataTableName := questdbinit.GetTranscriptTableName(experimentName)
 	countAudio, countTranscript := 0, 0
 	for _, logEvent := range logEventData {
 		audioDataArray, err := processAudioData(path.Join(*audioDataFileDir, logEvent.AudioDataFile), logEvent.Time, logEvent.SampleRate, logEvent.Name)

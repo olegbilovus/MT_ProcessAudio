@@ -1,4 +1,4 @@
-package main
+package questdb
 
 import (
 	"fmt"
