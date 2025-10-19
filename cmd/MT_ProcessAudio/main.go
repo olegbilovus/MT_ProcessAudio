@@ -42,8 +42,13 @@ func main() {
 	var logEventFilePath = flag.String("log-event-file", "", "path to the csv log events data")
 	var audioDataFileDir = flag.String("audio-data-file-dir", "", "path to the csv audio data file dir containing the files exported from Sonic Visualiser")
 	var transcriptFileDir = flag.String("transcript-file-dir", "", "path to the csv audio transcript file. Expected headers: TIME,VALUE,DURATION,LABEL. VALUE will be ignored")
+	var skipAudioData = flag.Bool("skip-audio-data", false, "skip the process and upload of audio data file")
 
 	flag.Parse()
+
+	if *skipAudioData {
+		log.Warning("Skipping audio data file process and upload")
+	}
 
 	var err error
 
@@ -74,23 +79,27 @@ func main() {
 	transcriptDataTableName := questdbinit.GetTranscriptTableName(experimentName)
 	countAudio, countTranscript := 0, 0
 	for _, logEvent := range logEventData {
-		audioDataArray, err := processAudioData(path.Join(*audioDataFileDir, logEvent.AudioDataFile), logEvent.Time, logEvent.SampleRate, logEvent.Name)
-		if err != nil {
-			log.Fatalf("error processing audio data %s: %v", logEvent.AudioDataFile, err)
+		var audioDataArray []*AudioData
+		if !*skipAudioData {
+			audioDataArray, err = processAudioData(path.Join(*audioDataFileDir, logEvent.AudioDataFile), logEvent.Time, logEvent.SampleRate, logEvent.Name)
+			if err != nil {
+				log.Fatalf("error processing audio data %s: %v", logEvent.AudioDataFile, err)
+			}
+
+			for _, audioData := range audioDataArray {
+				err := client.Table(audioDataTableName).
+					Symbol("name", audioData.Name).
+					Float64Column("audio_level", audioData.AudioLevel).
+					At(ctx, audioData.Time)
+				if err != nil {
+					log.Fatalln(err)
+				}
+			}
 		}
+
 		transcriptDataArray, err := processTranscriptData(path.Join(*transcriptFileDir, logEvent.TranscriptDataFile), logEvent.Time, logEvent.Name)
 		if err != nil {
 			log.Fatalf("error processing transcript data %s: %v", logEvent.TranscriptDataFile, err)
-		}
-
-		for _, audioData := range audioDataArray {
-			err := client.Table(audioDataTableName).
-				Symbol("name", audioData.Name).
-				Float64Column("audio_level", audioData.AudioLevel).
-				At(ctx, audioData.Time)
-			if err != nil {
-				log.Fatalln(err)
-			}
 		}
 
 		for _, transcriptData := range transcriptDataArray {
@@ -105,12 +114,17 @@ func main() {
 			}
 		}
 
-		log.WithField("name", logEvent.Name).Infof("Saved audio data: %d, transcript data: %d", len(audioDataArray), len(transcriptDataArray))
+		if !*skipAudioData {
+			log.WithField("name", logEvent.Name).Infof("Saved audio data: %d, transcript data: %d", len(audioDataArray), len(transcriptDataArray))
 
-		countAudio += len(audioDataArray)
+			countAudio += len(audioDataArray)
+		} else {
+			log.WithField("name", logEvent.Name).Infof("Skipped audio data, saved transcript data: %d", len(transcriptDataArray))
+		}
+
 		countTranscript += len(transcriptDataArray)
-
 	}
+	client.Flush(ctx)
 
 }
 
